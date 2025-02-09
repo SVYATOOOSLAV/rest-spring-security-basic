@@ -1,30 +1,55 @@
 package by.svyat.spring.security.basic.service;
 
+import by.svyat.spring.security.basic.common.UserDeleteRequest;
+import by.svyat.spring.security.basic.common.UserDeleteResponse;
 import by.svyat.spring.security.basic.common.UserRequest;
-import by.svyat.spring.security.basic.repository.UserDaoRepository;
+import by.svyat.spring.security.basic.common.UserResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.provisioning.UserDetailsManager;
 import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class UserService {
 
-    private final UserDaoRepository userDaoRepository;
-    private final PasswordEncoder passwordEncoder;
+    private final UserDetailsManager userDetailsManager;
+    private final UserMapper userMapper;
 
-    public void createUser(UserRequest user) {
-        UserDetails newUser = User.builder()
-                .username(user.getUsername())
-                .password(passwordEncoder.encode(user.getPassword()))
-                .roles(user.getRole())
-                .build();
+    public UserResponse createUser(UserRequest user) {
+        var newUser = userMapper.mapToUserDetails(user);
 
-        userDaoRepository.createUser(newUser);
-        userDaoRepository.addRole(newUser);
+        if(!userDetailsManager.userExists(user.getUsername())) {
+            userDetailsManager.createUser(newUser);
+        } else {
+            log.warn("User with username: [{}] already exists, skip store", user.getUsername());
+        }
+
+        return new UserResponse(user.getUsername(), user.getRole(), true);
+    }
+
+    public UserResponse updateUser(UserRequest user) {
+        var newUser = userMapper.mapToUserDetails(user);
+
+        if(userDetailsManager.userExists(user.getUsername())) {
+            userDetailsManager.updateUser(newUser);
+        } else {
+            log.warn("User with username: [{}] doesnt exists, skip updating", user.getUsername());
+        }
+
+        return new UserResponse(user.getUsername(), user.getRole(), true);
+    }
+
+    public UserDeleteResponse deleteUser(UserDeleteRequest user) {
+
+        if(userDetailsManager.userExists(user.getUsername())) {
+            userDetailsManager.deleteUser(user.getUsername());
+        } else {
+            log.warn("User with username: [{}] doesnt exists, skip deleting", user.getUsername());
+        }
+
+        return new UserDeleteResponse(user.getUsername());
     }
 
 }
